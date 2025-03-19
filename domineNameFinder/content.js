@@ -1,7 +1,6 @@
 let c = createCustomCursor();
 let isToggle = false;
 
-// Create a custom cursor element
 function createCustomCursor() {
     console.log("Custom cursor initialized");
 
@@ -9,8 +8,8 @@ function createCustomCursor() {
         const c = document.createElement("div");
         c.id = "customCursor";
         c.style = `
-            width: 2px;
-            height: 2px;
+            width: 10px;
+            height: 10px;
             background-color: red; 
             position: absolute;
             pointer-events: none;
@@ -24,13 +23,11 @@ function createCustomCursor() {
     }
 }
 
-// Move the custom cursor to the specified coordinates
 function moveCursor(x, y) {
     c.style.left = x + "px";
     c.style.top = y + "px";
 }
 
-// Simulate a click at the cursor's position
 function cursor_click() {
     const x = Math.round(mirrorCurserXY.x);
     const y = Math.round(mirrorCurserXY.y);
@@ -47,7 +44,6 @@ function cursor_click() {
     }
 }
 
-// Find the nearest clickable element
 function findAndClick(element) {
     while (element) {
         if (isClickable(element)) {
@@ -58,7 +54,6 @@ function findAndClick(element) {
     return null;
 }
 
-// Check if an element is clickable
 function isClickable(element) {
     const clickableTags = ["BUTTON", "A", "INPUT", "LABEL","SPAN"];
     if (clickableTags.includes(element.tagName)) {
@@ -67,36 +62,51 @@ function isClickable(element) {
     return element.onclick || element.getAttribute("onclick") !== null;
 }
 
-// Variables for hand tracking
 let video;
-let handPose;
+
 let hands = [];
 
-// Preload the handpose model
+
+// Replace the existing preload() and setup() with:
+
+let handPose;
+let isModelReady = false; // Flag to track model state
+
 function preload() {
-    handPose = ml5.handPose();
+    // Initialize handpose with a callback
+    if (typeof ml5 !== 'undefined') {
+        handPose = ml5.handPose(video, { flipHorizontal: true }, () => {
+            console.log("Model ready!");
+            isModelReady = true; // Set flag when model loads
+        });
+    }
 }
 
-// Setup the canvas and video
 function setup() {
     createCanvas(640, 480);
     video = createCapture(VIDEO);
     video.size(640, 480);
     video.hide();
 
-    handPose.detectStart(video, gotHands);
+    // Start detection ONLY when model is ready
+    const checkModel = () => {
+        if (isModelReady) {
+            handPose.detectStart(video, gotHands);
+        } else {
+            setTimeout(checkModel, 100); // Retry every 100ms
+        }
+    };
+    checkModel();
 }
 
-// Callback for hand detection
 function gotHands(results) {
+    if (!handPose || !isModelReady) return; // Guard clause
     hands = results;
 }
 
-// Boundary for the cursor
 const curserBoundry = getBoundry();
 moveCursor(curserBoundry.x / 2, curserBoundry.y / 2);
 
-// Cursor position tracking
 const curserXY = {
     x: curserBoundry.x / 2,
     y: curserBoundry.y / 2,
@@ -104,29 +114,24 @@ const curserXY = {
     py: 0
 };
 
-// Reference cursor position for relative movement
 const refCurserXY = {
     isReferd: false,
     x: 0,
     y: 0
 };
 
-// Mirrored cursor position
 const mirrorCurserXY = {
     x: 0,
     y: 0
 };
 
-// Thumb click state
 let isThumbClick = false;
 
-// Toggle state for cursor visibility
 let isToggleIsRest = true;
 
-// Main draw loop
 function draw() {
-    translate(width, 0);  // Move to the right edge
-    scale(-1, 1);
+    // translate(width, 0);  // Move to the right edge
+    // scale(-1, 1);
     image(video, 0, 0, width, height);
 
     if (hands.length == 0) return;
@@ -158,14 +163,12 @@ function draw() {
 
     if (isToggle) return;
 
-    // Draw hand landmarks for debugging
     fill(255, 0, 0, 150);
     circle(pinkyFingerTip.x, pinkyFingerTip.y, 10);
     circle(middleFingerTip.x, middleFingerTip.y, 10);
     circle(inxFingerTip.x, inxFingerTip.y, 10);
     circle(thumbFingerTip.x, thumbFingerTip.y, 10);
 
-    // Update cursor position based on hand movement
     if (calculateDistance(inxFingerTip, middleFingerTip) < 27) {
         if (!refCurserXY.isReferd) {
             refCurserXY.isReferd = true;
@@ -179,7 +182,6 @@ function draw() {
         refCurserXY.isReferd = false;
     }
 
-    // Simulate a click when thumb and index finger are close
     if (calculateDistance(inxFingerTip, thumbFingerTip) < 20) {
         if (!isThumbClick) {
             isThumbClick = true;
@@ -193,14 +195,13 @@ function draw() {
 
 ////////////////////////////////////////////////////////////////////////// Helper Functions /////////////////////////////////////////////////////////////////////////////////
 
-// Update cursor position
 function updataCurserXY(x, y, curserXY) {
     let t = false;
     if (Math.abs(x - curserXY.px) > 0) {
         if (curserXY.x + x <= curserBoundry.x && curserXY.x + x >= 0) {
             curserXY.x += x;
             curserXY.px = x;
-            mirrorCurserXY.x = curserBoundry.x - curserXY.x;
+            mirrorCurserXY.x  = curserXY.x;
         }
         t = true;
     }
@@ -217,17 +218,36 @@ function updataCurserXY(x, y, curserXY) {
     }
 }
 
-// Calculate distance between two points
 function calculateDistance(p1, p2) {
     const dx = p1.x - p2.x;
     const dy = p1.y - p2.y;
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Get the boundary of the window
 function getBoundry() {
     return {
         x: window.innerWidth,
         y: window.innerHeight
     };
 }
+
+window.addEventListener('beforeunload', () => {
+    // Reset model state
+    isModelReady = false;
+
+    if (handPose) {
+        handPose.detectStop();
+        handPose = null; // Explicitly nullify
+    }
+
+    if (video) {
+        video.stop();
+        video.remove();
+        video = null;
+    }
+
+    // Remove p5.js elements
+    noCanvas();
+    const p5Canvas = document.querySelector('canvas');
+    if (p5Canvas) p5Canvas.remove();
+});

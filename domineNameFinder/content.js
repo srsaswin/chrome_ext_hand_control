@@ -2,24 +2,46 @@ let video;
 let handPose;
 let isModelReady = false;
 let p5Canvas;
-let c; // Moved to top-level scope
+let c;
 let p5Instance; // Store the p5 instance
 let isToggle = false; // Added missing variable declaration
 
 const controlData = {
-    isEnabled: true,  // Default to false
-    sensitivity: 5,
-    isZoomable: true
+    isEnabled: false,  // Changed default to false
+    isZoomable: true,
+    value: {
+        sensitivity: 5,
+        index: 27,
+        middle: 25,
+        ring: 25,
+        pinky: 25
+    }
 };
+
+chrome.storage.local.get(['isEnabled', 'settings'], (data) => {
+    controlData.isEnabled = data.isEnabled ?? false;
+    c.style.display = controlData.isEnabled ? "block" : "none";
+
+    // Update settings if they exist
+    if (data.settings) {
+        controlData.value = data.settings;
+    }
+
+    if (controlData.isEnabled) {
+        initializeP5();
+    }
+});
 
 function initializeCursor() {
     if (!document.getElementById("customCursor")) {
         c = document.createElement("div");
         c.id = "customCursor";
         c.style.cssText = `
-            width: 10px;
-            height: 10px;
+            width: 15px;
+            height: 15px;
             background-color: red;
+            border-radius: 15px;
+            opacity: 0.8;
             position: fixed;
             pointer-events: none;
             z-index: 9999;
@@ -43,7 +65,6 @@ chrome.storage.local.get('isEnabled', (data) => {
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "toggleState") {
         controlData.isEnabled = message.isEnabled;
-        console.log('Extension state:', controlData.isEnabled);
 
         if (controlData.isEnabled) {
             c.style.display = "block";
@@ -52,6 +73,13 @@ chrome.runtime.onMessage.addListener((message) => {
             c.style.display = "none";
             stopHandTracking();
         }
+    }
+    if (message.action === "changeSetting") {
+        controlData.value = message.setting;
+    }
+    if (message.action === "isZoomable") {
+        // Fixed: Correctly set isZoomable from the message
+        controlData.isZoomable = message.isZoomable;
     }
 });
 
@@ -101,7 +129,7 @@ function initializeP5() {
                     let ringFingerTip = hand[16];
 
                     // Toggle cursor visibility
-                    if (calculateDistance(pinkyFingerTip, thumbFingerTip) < 25) {
+                    if (calculateDistance(pinkyFingerTip, thumbFingerTip) < controlData.value.pinky) {
                         if (isToggleIsRest) {
                             isToggleIsRest = false;
                             isToggle = !isToggle;
@@ -110,7 +138,6 @@ function initializeP5() {
                             } else {
                                 c.style.display = "block";
                             }
-                            console.log('Toggled cursor visibility');
                         }
                     }
 
@@ -120,23 +147,29 @@ function initializeP5() {
 
                     if (isToggle) return;
 
-                    if(calculateDistance(thumbFingerTip, middleFingerTip) < 25){
+                    if(calculateDistance(thumbFingerTip, middleFingerTip) < controlData.value.middle){
                         if(!zoomControl.isZoomIn){
                             zoomControl.isZoomIn = true;
-                            console.log("sim up");
-                            if(controlData.isZoomable) zoomWindow(curserXY, true);
-                            else simulateArrowKeystroke("up");
+
+                            if(controlData.isZoomable) {
+                                zoomWindow(curserXY, true);
+                            } else {
+                                simulateArrowKeystroke("up");
+                            }
                         }
                     } else {
                         zoomControl.isZoomIn = false;
                     }
 
-                    if(calculateDistance(thumbFingerTip, ringFingerTip) < 25){
+                    if(calculateDistance(thumbFingerTip, ringFingerTip) < controlData.value.ring){
                         if(!zoomControl.isZoomOut) {
                             zoomControl.isZoomOut = true;
-                            console.log("sim down");
-                            if(controlData.isZoomable) zoomWindow(curserXY, false);
-                            else simulateArrowKeystroke("down");
+
+                            if(controlData.isZoomable) {
+                                zoomWindow(curserXY, false);
+                            } else {
+                                simulateArrowKeystroke("down");
+                            }
                         }
                     } else {
                         zoomControl.isZoomOut = false;
@@ -150,30 +183,27 @@ function initializeP5() {
                     p.circle(inxFingerTip.x, inxFingerTip.y, 10);
                     p.circle(thumbFingerTip.x, thumbFingerTip.y, 10);
 
-                    if (calculateDistance(inxFingerTip, middleFingerTip) < 27) {
+                    if (calculateDistance(inxFingerTip, middleFingerTip) < controlData.value.index) {
                         if (!refCurserXY.isReferd) {
                             refCurserXY.isReferd = true;
                             refCurserXY.x = middleFingerTip.x;
                             refCurserXY.y = middleFingerTip.y;
-                            console.log('Cursor reference set');
                         } else {
-                            updataCurserXY((middleFingerTip.x - refCurserXY.x) / controlData.sensitivity, (middleFingerTip.y - refCurserXY.y) / controlData.sensitivity, curserXY);
+                            updataCurserXY((middleFingerTip.x - refCurserXY.x) / controlData.value.sensitivity, (middleFingerTip.y - refCurserXY.y) / controlData.value.sensitivity, curserXY);
                         }
                     } else {
                         refCurserXY.isReferd = false;
                     }
 
-                    if (calculateDistance(inxFingerTip, thumbFingerTip) < 20) {
+                    if (calculateDistance(inxFingerTip, thumbFingerTip) < controlData.value.index) {
                         if (!isThumbClick) {
                             isThumbClick = true;
-                            console.log('Simulated click');
                             cursor_click();
                         }
                     } else {
                         isThumbClick = false;
                     }
                 } catch (e) {
-                    console.log('Drawing error:', e);
                 }
             };
         });
@@ -231,12 +261,10 @@ function moveCursor(x, y) {
 function cursor_click() {
     const x = Math.round(mirrorCurserXY.x);
     const y = Math.round(mirrorCurserXY.y);
-    console.log(`Clicking at: (${x}, ${y})`);
 
     const element = document.elementFromPoint(x, y);
     if (element) {
-        console.log('Selected Element:', element);
-        element.style.border = '2px solid red'; // Highlight the element for debugging
+        // element.style.border = '2px solid red'; // Highlight the element for debugging
         const clickableElement = findAndClick(element);
         if (clickableElement) clickableElement.click();
     } else {

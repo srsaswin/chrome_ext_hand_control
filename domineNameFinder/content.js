@@ -77,6 +77,9 @@ function preload() {
     if (typeof ml5 !== 'undefined') {
         handPose = ml5.handPose(video, { flipHorizontal: true }, () => {
             console.log("Model ready!");
+            const tempTitle = document.title;
+            document.title = "ready to roll 👻";
+            setTimeout(()=>document.title = tempTitle,1500);
             isModelReady = true; // Set flag when model loads
         });
     }
@@ -142,6 +145,17 @@ function draw() {
     let middleFingerTip = hand[12];
     let inxFingerTip = hand[8];
     let thumbFingerTip = hand[4];
+    let ringFingerTip = hand[16];
+
+    if(calculateDistance(thumbFingerTip,middleFingerTip) < 25){
+        console.log("sim up");
+        simulateArrowKeystroke("up");
+    }
+
+    if(calculateDistance(thumbFingerTip,ringFingerTip) < 25){
+        console.log("sim down");
+        simulateArrowKeystroke("down");
+    }
 
     // Toggle cursor visibility
     if (calculateDistance(pinkyFingerTip, thumbFingerTip) < 25) {
@@ -194,6 +208,38 @@ function draw() {
 }
 
 ////////////////////////////////////////////////////////////////////////// Helper Functions /////////////////////////////////////////////////////////////////////////////////
+
+function simulateArrowKeystroke(direction) {
+    const keyMap = {
+        up: { key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
+        down: { key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
+        left: { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
+        right: { key: "ArrowRight", code: "ArrowRight", keyCode: 39 }
+    };
+
+    if (!keyMap[direction]) {
+        console.error("Invalid direction! Use 'up', 'down', 'left', or 'right'.");
+        return;
+    }
+
+    const event = new KeyboardEvent("keydown", {
+        key: keyMap[direction].key,
+        code: keyMap[direction].code,
+        keyCode: keyMap[direction].keyCode,
+        which: keyMap[direction].keyCode,
+        bubbles: true,
+    });
+
+    document.dispatchEvent(event);
+}
+
+// Example usage
+simulateArrowKeystroke("up");    // Simulate Up Arrow key
+simulateArrowKeystroke("down");  // Simulate Down Arrow key
+simulateArrowKeystroke("left");  // Simulate Left Arrow key
+simulateArrowKeystroke("right"); // Simulate Right Arrow key
+
+
 
 function updataCurserXY(x, y, curserXY) {
     let t = false;

@@ -132,6 +132,16 @@ let isThumbClick = false;
 
 let isToggleIsRest = true;
 
+const zoomControl = {
+    isZoomIn: false,
+    isZoomOut: false,
+};
+
+const controlData = {
+    sensitivity:5,
+    isZoomable: false
+};
+
 function draw() {
     // translate(width, 0);  // Move to the right edge
     // scale(-1, 1);
@@ -148,13 +158,25 @@ function draw() {
     let ringFingerTip = hand[16];
 
     if(calculateDistance(thumbFingerTip,middleFingerTip) < 25){
-        console.log("sim up");
-        simulateArrowKeystroke("up");
+        if(!zoomControl.isZoomIn){
+            zoomControl.isZoomIn = true;
+            console.log("sim up");
+            if(controlData.isZoomable) zoomWindow(curserXY, true);
+            else simulateArrowKeystroke("up");
+        }
+    }else{
+        zoomControl.isZoomIn = false;
     }
 
     if(calculateDistance(thumbFingerTip,ringFingerTip) < 25){
-        console.log("sim down");
-        simulateArrowKeystroke("down");
+        if(!zoomControl.isZoomOut) {
+            zoomControl.isZoomOut = true;
+            console.log("sim down");
+            if(controlData.isZoomable) zoomWindow(curserXY, false);
+            else simulateArrowKeystroke("down");
+        }
+    }else{
+        zoomControl.isZoomOut = false;
     }
 
     // Toggle cursor visibility
@@ -190,7 +212,7 @@ function draw() {
             refCurserXY.y = middleFingerTip.y;
             console.log('Cursor reference set');
         } else {
-            updataCurserXY((middleFingerTip.x - refCurserXY.x) / 5, (middleFingerTip.y - refCurserXY.y) / 5, curserXY);
+            updataCurserXY((middleFingerTip.x - refCurserXY.x) / controlData.sensitivity, (middleFingerTip.y - refCurserXY.y) / controlData.sensitivity, curserXY);
         }
     } else {
         refCurserXY.isReferd = false;
@@ -208,6 +230,42 @@ function draw() {
 }
 
 ////////////////////////////////////////////////////////////////////////// Helper Functions /////////////////////////////////////////////////////////////////////////////////
+
+function zoomWindow(point, zoomIn = true) {
+    let x = point.x,y = point.y;
+
+    const scaleFactor = zoomIn ? 1.1 : 0.9;
+    const body = document.body;
+
+    // Get current scale from the transform style
+    const currentTransform = window.getComputedStyle(body).transform;
+    let currentScale = 1;
+    if (currentTransform !== "none") {
+        const match = currentTransform.match(/matrix\(([^,]+),/);
+        if (match) {
+            currentScale = parseFloat(match[1]);
+        }
+    }
+
+    // Calculate new scale
+    const newScale = currentScale * scaleFactor;
+
+    // Calculate the transform origin as a percentage
+    const originX = (x / window.innerWidth) * 100;
+    const originY = (y / window.innerHeight) * 100;
+
+    // Apply the transformation
+    body.style.transformOrigin = `${originX}% ${originY}%`;
+    body.style.transform = `scale(${newScale})`;
+}
+
+
+
+
+
+
+
+
 
 function simulateArrowKeystroke(direction) {
     const keyMap = {
@@ -232,12 +290,12 @@ function simulateArrowKeystroke(direction) {
 
     document.dispatchEvent(event);
 }
-
-// Example usage
-simulateArrowKeystroke("up");    // Simulate Up Arrow key
-simulateArrowKeystroke("down");  // Simulate Down Arrow key
-simulateArrowKeystroke("left");  // Simulate Left Arrow key
-simulateArrowKeystroke("right"); // Simulate Right Arrow key
+//
+// // Example usage
+// simulateArrowKeystroke("up");    // Simulate Up Arrow key
+// simulateArrowKeystroke("down");  // Simulate Down Arrow key
+// simulateArrowKeystroke("left");  // Simulate Left Arrow key
+// simulateArrowKeystroke("right"); // Simulate Right Arrow key
 
 
 

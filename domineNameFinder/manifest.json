@@ -3,10 +3,10 @@
   "name": "AZ",
   "version": "0.1",
   "author": "sasawin",
-  "description": "A Chrome Extension that helps us track problems on AZ",
-  "permissions": [
-    "storage",
-    "tabs"
+  "description": "A Chrome Extension that helps us track problems on AZ", "permissions": [
+  "storage",
+  "tabs",
+  "activeTab"
   ],
   "content_scripts": [
     {
@@ -31,6 +31,7 @@
       "matches" : ["<all_urls>"]
     }
   ],
+
   "action": {
     "default_popup": "popup.html"
   }
